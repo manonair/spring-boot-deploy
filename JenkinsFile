@@ -5,9 +5,9 @@ pipeline {
 // 9)	Create another job to deploy the code from Artifactory/Nexus to slave QA and host it 
 // 10)	View the status both upstream and downstream job in the dashboard of Jenkins 
     stages {
-        stage("checkout the project"){
+        stage("deploy from Artifactory"){
             steps{
-                echo "====++++checkout the project++++===="
+                echo "====++++deploy from Artifactoryt++++===="
                 script {
                     sh label: '', script: '''server="http://localhost:8081/repository"
                     repo="mt-snapshot"
@@ -15,19 +15,18 @@ pipeline {
                     artifact="com/mt/$name"
                     buildversion="1.1.0-SNAPSHOT"
                     path=$server/$repo/$artifact/$buildversion
-                    echo $path/maven-metadata.xml
                     mvnMetadata=$(curl -s "$path/maven-metadata.xml")
                     jar=""
                     version=$( echo "$mvnMetadata" | xpath -e "//versioning/release/text()" 2> /dev/null)
                     if [[ $version = *[!\\ ]* ]]; then
-                    jar=$name-$version.jar
+                        jar=$name-$version.jar
                     else
-                    version=$(echo "$mvnMetadata" | xpath -e "//versioning/versions/version[last()]/text()")
-                    snapshotMetadata=$(curl -s "$path/$version/maven-metadata.xml")
-                    timestamp=$(echo "$snapshotMetadata" | xpath -e "//snapshot/timestamp/text()")
-                    buildNumber=$(echo "$snapshotMetadata" | xpath -e "//snapshot/buildNumber/text()")
-                    snapshotVersion=$(echo "$buildversion" | sed \'s/\\(-SNAPSHOT\\)*$//g\')
-                    jar=$name-$snapshotVersion-$timestamp-$buildNumber.jar
+                            version=$(echo "$mvnMetadata" | xpath -e "//versioning/versions/version[last()]/text()")
+                            snapshotMetadata=$(curl -s "$path/$version/maven-metadata.xml")
+                            timestamp=$(echo "$snapshotMetadata" | xpath -e "//snapshot/timestamp/text()")
+                            buildNumber=$(echo "$snapshotMetadata" | xpath -e "//snapshot/buildNumber/text()")
+                            snapshotVersion=$(echo "$buildversion" | sed \'s/\\(-SNAPSHOT\\)*$//g\')
+                            jar=$name-$snapshotVersion-$timestamp-$buildNumber.jar
                     fi
                     jarUrl=$path/$version/$jar
                     echo $jarUrl
