@@ -1,14 +1,13 @@
 pipeline {
         agent {
-        label "QA"
+        label "master"
         }  
-// 9)	Create another job to deploy the code from Artifactory/Nexus to slave QA and host it 
-// 10)	View the status both upstream and downstream job in the dashboard of Jenkins 
+ 
     stages {
-        stage("deploy from Artifactory"){
-            steps{
-                echo "====++++deploy from Artifactoryt++++===="
-                script {
+        stage("Downloading from Artifactory"){
+            steps{                
+                echo "====++++Downloading from Artifactory++++===="
+                script {  
                     sh label: '', script: '''server="http://localhost:8081/repository"
                     repo="mt-snapshot"
                     name="spring-boot-crud"
@@ -21,36 +20,39 @@ pipeline {
                     if [[ $version = *[!\\ ]* ]]; then
                         jar=$name-$version.jar
                     else
-                            version=$(echo "$mvnMetadata" | xpath -e "//versioning/versions/version[last()]/text()")
-                            snapshotMetadata=$(curl -s "$path/$version/maven-metadata.xml")
-                            timestamp=$(echo "$snapshotMetadata" | xpath -e "//snapshot/timestamp/text()")
-                            buildNumber=$(echo "$snapshotMetadata" | xpath -e "//snapshot/buildNumber/text()")
-                            snapshotVersion=$(echo "$buildversion" | sed \'s/\\(-SNAPSHOT\\)*$//g\')
-                            jar=$name-$snapshotVersion-$timestamp-$buildNumber.jar
+                        version=$(echo "$mvnMetadata" | xpath -e "//versioning/versions/version[last()]/text()")
+                        snapshotMetadata=$(curl -s "$path/$version/maven-metadata.xml")
+                        timestamp=$(echo "$snapshotMetadata" | xpath -e "//snapshot/timestamp/text()")
+                        buildNumber=$(echo "$snapshotMetadata" | xpath -e "//snapshot/buildNumber/text()")
+                        snapshotVersion=$(echo "$buildversion" | sed \'s/\\(-SNAPSHOT\\)*$//g\')
+                        jar=$name-$snapshotVersion-$timestamp-$buildNumber.jar
                     fi
+                    
                     jarUrl=$path/$version/$jar
                     echo $jarUrl
                     mkdir -p /Users/Shared/$name
                     wget -O /Users/Shared/$name/$name.jar -q -N $jarUrl
+
                     '''
                 }
             } 
+            post{
+                failure{
+                    echo "====++++Downloading from Artifactory execution failed++++===="
+                }
+            }
         }
-
-
-        stage("Deploy application "){
+        stage("Deploy Build"){
             steps{
-                echo "====++++Deploy application  ++++===="
-                script{
-                     sh "lsof -ti:8989 | xargs kill"
-                    withEnv(['JENKINS_NODE_COOKIE=dontkill']) {
-                        sh 'nohup mvn spring-boot:run -Dserver.port=8989 &'
-                    }
-                }               
+               echo "====++++Deploy Build++++===="
+                sh "lsof -ti:8989 | xargs kill"
+                withEnv(['JENKINS_NODE_COOKIE=dontkill']) {
+                    sh 'nohup mvn spring-boot:run -Dserver.port=8989 &'
+                }
             }
             post{
                 failure{
-                    echo "====++++Deploy application execution failed++++===="
+                    echo "====++++Deploy Build execution failed++++===="
                 }
             }
         }
